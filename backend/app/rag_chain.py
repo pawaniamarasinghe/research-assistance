@@ -100,4 +100,4 @@ class RAGAssistant:
         return response["answer"]
 
 # Global instance
-assistant = RAGAssistant()
+AbstractIQ = RAGAssistant()

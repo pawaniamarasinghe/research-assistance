@@ -3,11 +3,11 @@ import shutil
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from app.rag_chain import assistant
+# CHANGED IMPORT HERE:
+from app.rag_chain import AbstractIQ
 
 app = FastAPI()
 
-# Enable CORS so your React frontend can talk to it
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -33,24 +33,21 @@ async def upload_pdf(file: UploadFile = File(...), session_id: str = "default_us
         shutil.copyfileobj(file.file, buffer)
     
     try:
-        # Process RAG and summary
-        assistant.process_pdf(file_path, session_id)
-        summary = assistant.generate_summary(file_path)
+        # CHANGED TO AbstractIQ HERE:
+        AbstractIQ.process_pdf(file_path, session_id)
+        summary = AbstractIQ.generate_summary(file_path)
         return {"summary": summary, "filename": file.filename}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
     finally:
         if os.path.exists(file_path):
-            os.remove(file_path) # Clean up temp file
+            os.remove(file_path)
 
 @app.post("/chat")
 async def chat(request: ChatRequest):
     try:
-        answer = assistant.ask_question(request.message, request.session_id)
+        # CHANGED TO AbstractIQ HERE:
+        answer = AbstractIQ.ask_question(request.message, request.session_id)
         return {"answer": answer}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-
-if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
