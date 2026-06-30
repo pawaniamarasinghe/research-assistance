@@ -1,21 +1,15 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Send, Cpu, Disc } from 'lucide-react';
 
-// Helper function to turn Markdown text into styled HTML elements safely
 const formatBotResponse = (text) => {
   if (!text) return "";
-  
-  // Clean bold highlights (**text**)
   let formatted = text.replace(/\*\*(.*?)\*\*/g, '<strong class="text-blue-400 font-bold">$1</strong>');
-  
-  // Clean lists/bullet points (* text)
   formatted = formatted.replace(/^\s*[\*\-]\s+(.*)$/gm, '<div class="pl-4 py-0.5 text-slate-300 flex items-start gap-2"><span>•</span><span>$1</span></div>');
-  
-  // Clean structural paragraph spacing
   return formatted;
 };
 
-export const ChatWindow = ({ sessionId }) => {
+// Added docVersion to the destructured props list here:
+export const ChatWindow = ({ sessionId, docVersion }) => {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [isTyping, setIsTyping] = useState(false);
@@ -29,6 +23,13 @@ export const ChatWindow = ({ sessionId }) => {
     "Find Vector Clusters",
     "Explore Citations"
   ];
+
+  // 🚀 AUTOMATIC CHAT RESET TRIGGER
+  // Wipes the conversation text arrays whenever a brand new document finishes parsing successfully
+  useEffect(() => {
+    setMessages([]);
+    setInput("");
+  }, [docVersion]);
 
   useEffect(() => {
     scrollRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -67,7 +68,7 @@ export const ChatWindow = ({ sessionId }) => {
               <Disc size={12} className="absolute -top-1 -right-1 text-indigo-400 animate-spin" />
             </div>
             <p className="text-sm font-bold tracking-wider text-slate-300 uppercase">AbstractIQ Agent</p>
-            <p className="text-[11px] text-slate-500 mt-1 mb-6 max-w-xs">Query document index nodes directly using vector match sequences.</p>
+            <p className="text-[11px] text-slate-500 mt-1 mb-6 max-w-xs">Use this chatbot to get instant answers straight from the source text.</p>
             
             <div className="grid grid-cols-2 gap-2 max-w-sm w-full">
               {shortcutChips.map((chip, i) => (
@@ -88,7 +89,7 @@ export const ChatWindow = ({ sessionId }) => {
             ) : (
               <div 
                 className="p-3.5 rounded-2xl max-w-[80%] text-[12px] leading-relaxed tracking-wide shadow-md border bg-slate-950/70 border-slate-800 text-slate-300 rounded-bl-none whitespace-pre-line space-y-1"
-                dangerouslySetInnerHTML={{ __init__ : false, __html: formatBotResponse(m.text) }}
+                dangerouslySetInnerHTML={{ __html: formatBotResponse(m.text) }}
               />
             )}
           </div>
