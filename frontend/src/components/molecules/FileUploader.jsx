@@ -3,6 +3,8 @@ import { Upload, File, HelpCircle } from 'lucide-react';
 import { Button } from '../atoms/Button';
 import { LoadingSpinner } from '../atoms/LoadingSpinner';
 
+
+
 export const FileUploader = ({ sessionId, onUploadSuccess }) => {
   const [file, setFile] = useState(null);
   const [status, setStatus] = useState("idle");
@@ -25,9 +27,13 @@ export const FileUploader = ({ sessionId, onUploadSuccess }) => {
         method: "POST",
         body: formData,
       });
+      
       if (!response.ok) throw new Error("Upload failed");
       const data = await response.json();
-      onUploadSuccess(data.summary);
+      
+      // 🚀 THE FIX: Pass both variables back up to the App history list layer cleanly
+      onUploadSuccess(data.summary, file.name); 
+      
       setStatus("success");
     } catch (error) {
       alert("Error uploading file to python server.");

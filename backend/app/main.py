@@ -1,13 +1,15 @@
-import os
-import shutil
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-# CHANGED IMPORT HERE:
+import os
+import shutil
+
+# Ensure this exact line matches your file layout
 from app.rag_chain import AbstractIQ
 
 app = FastAPI()
 
+# Allow frontend ports to fetch from Python securely
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -33,11 +35,21 @@ async def upload_pdf(file: UploadFile = File(...), session_id: str = "default_us
         shutil.copyfileobj(file.file, buffer)
     
     try:
-        # CHANGED TO AbstractIQ HERE:
+        print(f"🚀 [DEBUG] Starting PDF processing for session: {session_id}")
         AbstractIQ.process_pdf(file_path, session_id)
+        
+        print("🚀 [DEBUG] PDF processed successfully. Generating summary...")
         summary = AbstractIQ.generate_summary(file_path)
+        
+        print("🚀 [DEBUG] Summary generated successfully!")
         return {"summary": summary, "filename": file.filename}
     except Exception as e:
+        # 🎯 THIS LINE WILL FORCE THE TRUE CRASH REASON TO PRINT IN YOUR TERMINAL
+        import traceback
+        print("\n❌ ❌ [BACKEND CRASH TRACEBACK] ❌ ❌")
+        traceback.print_exc() 
+        print("❌ ❌ ------------------------- ❌ ❌\n")
+        
         raise HTTPException(status_code=500, detail=str(e))
     finally:
         if os.path.exists(file_path):
@@ -46,7 +58,6 @@ async def upload_pdf(file: UploadFile = File(...), session_id: str = "default_us
 @app.post("/chat")
 async def chat(request: ChatRequest):
     try:
-        # CHANGED TO AbstractIQ HERE:
         answer = AbstractIQ.ask_question(request.message, request.session_id)
         return {"answer": answer}
     except Exception as e:

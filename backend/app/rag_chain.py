@@ -1,103 +1,119 @@
 import os
 from dotenv import load_dotenv
+
+# Load environment variables from the .env file dynamically
+load_dotenv()
+
 from langchain_community.document_loaders import PyPDFLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
-from langchain_groq import ChatGroq
+from langchain_community.vectorstores import FAISS
 from langchain_huggingface import HuggingFaceEmbeddings
-from langchain_community.vectorstores import Chroma
-from langchain_classic.chains import create_retrieval_chain
-from langchain_classic.chains.combine_documents import create_stuff_documents_chain
-from langchain_core.prompts import ChatPromptTemplate
-
-load_dotenv()
+from langchain_groq import ChatGroq
 
 class RAGAssistant:
     def __init__(self):
-        # 1. Using Groq's free llama model as the brain
-        self.llm = ChatGroq(model="llama-3.1-8b-instant", temperature=0)
-        
-        # 2. Using HuggingFace local model for FREE math text embeddings
+        # Explicit model initialization
         self.embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
         
-        self.persist_directory_base = "./chroma_db"
-        os.makedirs(self.persist_directory_base, exist_ok=True)
+        api_key = os.getenv("GROQ_API_KEY")
+        if not api_key:
+            print("⚠️ WARNING: GROQ_API_KEY could not be loaded from your .env file!")
+            
+        self.llm = ChatGroq(
+            model="llama-3.1-8b-instant", 
+            temperature=0.1, # Slightly elevated for fluent articulation while retaining factual accuracy
+            groq_api_key=api_key
+        )
+        # Dictionary to store isolated vector stores per session
+        self.vector_stores = {}
 
     def process_pdf(self, file_path: str, session_id: str):
-        """Extracts text and saves vectors into a unique, isolated folder per session."""
+        """Loads a PDF, splits text, and houses it in an isolated vector memory pool."""
         loader = PyPDFLoader(file_path)
         docs = loader.load()
-
-        text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
+        
+        # Optimized chunk size to capture better context details for the chat
+        text_splitter = RecursiveCharacterTextSplitter(chunk_size=1200, chunk_overlap=250)
         splits = text_splitter.split_documents(docs)
-
-        session_db_path = os.path.join(self.persist_directory_base, session_id)
-
-        # Saves the database directly to your hard drive
-        Chroma.from_documents(
-            documents=splits, 
-            embedding=self.embeddings,
-            persist_directory=session_db_path
-        )
+        
+        # Build vector store locally and isolate by session ID
+        vector_store = FAISS.from_documents(splits, self.embeddings)
+        self.vector_stores[session_id] = vector_store
 
     def generate_summary(self, file_path: str) -> str:
-        """Generates a predefined structured summary."""
+        """Generates a strictly structured, professionally formatted summary template."""
         loader = PyPDFLoader(file_path)
         docs = loader.load()
-        full_text = " ".join([doc.page_content for doc in docs[:2]]) 
+        
+        # Read slightly more text (up to first 3 pages) to prevent missing information
+        full_text = " ".join([doc.page_content for doc in docs[:3]]) 
 
         summary_prompt = f"""
-        Analyze the following research paper text and generate a structured summary using exactly these sections:
+        You are an expert academic research analyst. Analyze the provided research paper text and generate a comprehensive, professional, structured template summary.
         
+        CRITICAL FORMATTING RULES:
+        1. You must use EXACTLY the markdown headings listed below. Do not alter them.
+        2. Use bolding (**concept**) for key terms and organized paragraph breaks.
+        3. Keep the content dense, deeply academic, informative, and beautifully clear.
+
         ### Title, Authors & Abstract
-        [Provide content here]
+        - **Title:** [Extract full paper title]
+        - **Authors:** [List all contributing authors]
+        - **Core Focus:** [Provide a detailed 3-4 sentence academic breakdown of the abstract focus]
         
         ### Problem Statement
-        [Provide content here]
+        [Detail the specific real-world or theoretical problem, limitation, or gap in research this paper addresses in a structured paragraph]
         
         ### Methodology
-        [Provide content here]
+        - **Research Approach:** [Explain the core paradigm or architecture used]
+        - **Data/Framework Setup:** [List the datasets, variables, tools, or logical parameters used]
+        - **Execution Sequence:** [Briefly list the logical execution steps taken]
         
         ### Key Results
-        [Provide content here]
+        - [Result 1 with explicit metrics, data points, or core breakthroughs discovered]
+        - [Result 2 with explicit metrics, data points, or core breakthroughs discovered]
         
         ### Conclusion
-        [Provide content here]
+        [Synthesize the final impact, core takeaways, and suggested future work outlined by the authors]
 
-        Paper Content:
+        Paper Content Material:
         {full_text}
         """
         response = self.llm.invoke(summary_prompt)
         return response.content
 
     def ask_question(self, question: str, session_id: str) -> str:
-        """Dynamically loads the correct vector store folder for the asking user."""
-        session_db_path = os.path.join(self.persist_directory_base, session_id)
-        
-        if not os.path.exists(session_db_path):
+        """Queries the vector store and returns highly accurate, clean, markdown-formatted answers."""
+        if session_id not in self.vector_stores:
             return "No document context found for this session. Please upload a PDF first."
+            
+        vector_store = self.vector_stores[session_id]
         
-        vector_store = Chroma(
-            persist_directory=session_db_path, 
-            embedding_function=self.embeddings
-        )
+        # Pulling 4 rich chunks instead of 3 for deep context gathering
+        retriever = vector_store.as_retriever(search_kwargs={"k": 4}) 
+        relevant_docs = retriever.invoke(question)
+        context = "\n\n".join([doc.page_content for doc in relevant_docs])
         
-        retriever = vector_store.as_retriever(search_kwargs={"k": 3})
-        
-        system_prompt = (
-            "You are an expert research assistant. Answer the user's question using the provided context. "
-            "If you do not know the answer, say that you do not know.\n\n"
-            "Context:\n{context}"
-        )
-        prompt = ChatPromptTemplate.from_messages([
-            ("system", system_prompt),
-            ("human", "{input}"),
-        ])
-        
-        question_answer_chain = create_stuff_documents_chain(self.llm, prompt)
-        retrieval_chain = create_retrieval_chain(retriever, question_answer_chain)
-        
-        response = retrieval_chain.invoke({"input": question})
-        return response["answer"]
+        qa_prompt = f"""
+        You are AbstractIQ, an elite academic AI research partner. Your task is to provide an incredibly thorough, well-structured, and insightful answer to the user's question using ONLY the document context provided below.
 
-# Global instance
+        RULES FOR HIGH-QUALITY ANSWERS:
+        1. Formulate your response using beautiful structural markdown layout conventions.
+        2. Use **bold text** to highlight critical statistics, key figures, or major findings.
+        3. When explaining sequences, components, or results, use clear bullet points (`- Item`).
+        4. Organize long answers into distinct structural blocks with concise subheaders if needed.
+        5. If the provided context does not contain the answer, say exactly: "I cannot find the explicit answer within the provided document chunks." Do not hallucinate.
+
+        Context Material:
+        {context}
+
+        User Question:
+        {question}
+
+        Answer:
+        """
+        response = self.llm.invoke(qa_prompt)
+        return response.content
+
+# Export the precise global variable name your main.py relies on
 AbstractIQ = RAGAssistant()

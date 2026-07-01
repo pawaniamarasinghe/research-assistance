@@ -1,54 +1,102 @@
 import React from 'react';
+import { History, Plus, MessageSquare } from 'lucide-react';
 
-export const DashboardTemplate = ({ uploader, summaryPanel, chatWindow }) => {
+export const DashboardTemplate = ({ 
+  uploader, 
+  summaryPanel, 
+  chatWindow, 
+  sessions, 
+  activeSessionId, 
+  onSelectSession,
+  onNewSession 
+}) => {
   return (
-    <div className="w-screen min-h-screen bg-[#070b14] text-slate-200 antialiased font-sans flex flex-col relative overflow-x-hidden select-none">
+    <div style={{ height: '100vh', width: '100vw', backgroundColor: '#070b14', color: '#e2e8f0', display: 'flex', flexDirection: 'row', overflow: 'hidden', position: 'fixed', top: 0, left: 0 }}>
       
-      {/* Dynamic Background ambient color nodes */}
-      <div className="absolute top-[-10%] left-[-15%] w-[500px] h-[500px] bg-blue-900/10 rounded-full blur-[140px] pointer-events-none z-0"></div>
-      <div className="absolute bottom-[-10%] right-[-10%] w-[500px] h-[500px] bg-indigo-900/10 rounded-full blur-[140px] pointer-events-none z-0"></div>
-
-      {/* 🚀 FIXED HEADER WRAPPER (Guaranteed to stay visible under all CDN scripts) */}
-      <header className="w-full block relative z-50 h-20 min-h-[80px] px-8 border-b border-slate-900/80 bg-[#070b14]/80 backdrop-blur-xl shadow-lg shadow-black/20 flex items-center justify-between shrink-0">
-        <div className="flex items-center gap-4">
-          <h1 className="text-base font-extrabold tracking-widest uppercase bg-gradient-to-r from-white via-slate-100 to-slate-400 bg-clip-text text-transparent drop-shadow-sm">
-            Research Workspace
-          </h1>
-          <span className="text-[9px] font-bold tracking-widest uppercase px-2.5 py-1 bg-blue-950/50 border border-blue-500/30 text-blue-400 rounded-full shadow-[0_0_15px_rgba(59,130,246,0.15)] flex items-center justify-center h-5">
-            ⚙️ RAG Enabled
-          </span>
+      {/* Sidebar Panel Layout */}
+      <aside style={{ width: '256px', minWidth: '256px', height: '100vh', display: 'flex', flexDirection: 'column', backgroundColor: '#040810', borderRight: '1px solid #0f172a', zIndex: 50 }}>
+        
+        {/* HIGH-VISIBILITY ACTION HEADER */}
+        <div style={{ height: '64px', minHeight: '64px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 16px', borderBottom: '1px solid #1e293b' }}>
+          <div className="flex items-center gap-2 text-slate-400 font-bold uppercase tracking-wider text-[10px]">
+            <History size={12} className="text-blue-500" />
+            <span>Workspace Logs</span>
+          </div>
+          
+          {/* 🔥 Glowing, high-contrast action button */}
+          <button 
+            onClick={onNewSession}
+            className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-widest px-2.5 py-1.5 bg-blue-600 text-white hover:bg-blue-500 rounded-lg transition shadow-[0_0_15px_rgba(59,130,246,0.4)] active:scale-95"
+            title="Start a brand new chat context"
+          >
+            <Plus size={12} strokeWidth={3} />
+            <span>New</span>
+          </button>
         </div>
+
+        {/* Saved Session Channels */}
+        <div style={{ flex: 1, overflowY: 'auto', padding: '12px' }}>
+          {sessions.length === 0 ? (
+            <div className="text-[10px] text-slate-600 italic p-4 text-center mt-6 leading-relaxed">
+              No index tracks cached yet. Drop a file to start.
+            </div>
+          ) : (
+            sessions.map((session) => {
+              const isActive = session.id === activeSessionId;
+              return (
+                <button
+                  key={session.id}
+                  onClick={() => onSelectSession(session)}
+                  style={{ display: 'flex', width: '100%', alignItems: 'start', gap: '10px', padding: '10px', marginBottom: '6px' }}
+                  className={`rounded-xl text-left transition border ${
+                    isActive 
+                      ? 'bg-blue-600/10 border-blue-500/30 text-blue-400 shadow-[0_0_10px_rgba(59,130,246,0.05)]' 
+                      : 'bg-transparent border-transparent text-slate-500 hover:bg-slate-900/40 hover:text-slate-300'
+                  }`}
+                >
+                  <MessageSquare size={13} className="mt-0.5 shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[11px] font-medium truncate tracking-wide leading-tight">{session.name}</p>
+                  </div>
+                </button>
+              );
+            })
+          )}
+        </div>
+      </aside>
+
+      {/* Main Workspace Frame */}
+      <div style={{ flex: 1, height: '100vh', display: 'flex', flexDirection: 'column', overflow: 'hidden', position: 'relative' }}>
         
-        <div className="flex items-center">
-          <div className="flex items-center justify-center h-8 px-4 bg-slate-950/80 border border-slate-800 rounded-xl font-mono text-[10px] text-slate-400 select-none shadow-inner">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse inline-block mr-2"></span>
-            Oxhsl...hsFG5
+        {/* Global Header Element */}
+        <header style={{ height: '64px', minHeight: '64px', maxHeight: '64px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 32px', borderBottom: '1px solid #0f172a', backgroundColor: '#070b14', relative: 'true', zIndex: 40 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <h1 className="text-xs font-black tracking-widest uppercase bg-gradient-to-r from-white via-slate-200 to-slate-400 bg-clip-text text-transparent">
+              Research Workspace
+            </h1>
+            <span className="text-[8px] font-bold tracking-widest uppercase px-2 py-0.5 bg-blue-950/40 border border-blue-800/40 text-blue-400 rounded-full">
+              ⚙️ Multi-Session Cache V2
+            </span>
+          </div>
+          
+          <div className="flex items-center gap-1 text-[9px] bg-slate-950/60 border border-slate-800 px-3 py-1.5 rounded-xl font-mono text-slate-500">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse inline-block mr-1.5"></span>
+            Node ID: {activeSessionId.split('_')[1] || "idle"}
+          </div>
+        </header>
+
+        {/* Scroll Body Panels Frame */}
+        <div style={{ flex: 1, overflowY: 'auto', padding: '32px' }}>
+          <div style={{ maxWidth: '1152px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '32px' }}>
+            <section style={{ maxWidth: '576px', margin: '0 auto', width: '100%' }}>{uploader}</section>
+            <main className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start w-full">
+              <div className="w-full block">{summaryPanel}</div>
+              <div className="flex flex-col w-full">{chatWindow}</div>
+            </main>
           </div>
         </div>
-      </header>
 
-      {/* Core Body Workspace Modules */}
-      <div className="flex-1 w-full relative z-10 flex flex-col items-center justify-start px-4 py-8 sm:px-6 lg:px-8 max-w-7xl mx-auto space-y-8 overflow-y-auto">
-        
-        {/* File Upload Area */}
-        <section className="max-w-xl mx-auto w-full block">
-          {uploader}
-        </section>
-        
-        {/* Main Workspaces Layout Splitting */}
-        <main className="grid grid-cols-1 lg:grid-cols-2 gap-8 w-full items-start">
-          <div className="w-full block">
-            {summaryPanel}
-          </div>
-          <div className="flex flex-col w-full block">
-            <h2 className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-3 px-1">
-              Context Query Hub
-            </h2>
-            {chatWindow}
-          </div>
-        </main>
       </div>
-
     </div>
   );
 };
